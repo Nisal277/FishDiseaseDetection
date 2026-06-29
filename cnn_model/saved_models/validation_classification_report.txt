@@ -1,0 +1,16 @@
+VALIDATION Loss: 0.856553
+VALIDATION Accuracy: 0.750000
+
+                                   precision    recall  f1-score   support
+
+            Bacterial Red disease     1.0000    0.6250    0.7692         8
+Bacterial diseases - Aeromoniasis     1.0000    0.4000    0.5714         5
+           Bacterial gill disease     0.5556    1.0000    0.7143         5
+   Fungal diseases Saprolegniasis     0.4286    0.7500    0.5455         4
+                     Healthy Fish     0.9444    1.0000    0.9714        17
+               Parasitic diseases     0.0000    0.0000    0.0000         1
+Viral diseases White tail disease     1.0000    0.2500    0.4000         4
+
+                         accuracy                         0.7500        44
+                        macro avg     0.7041    0.5750    0.5674        44
+                     weighted avg     0.8534    0.7500    0.7472        44
