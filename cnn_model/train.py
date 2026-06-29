@@ -8,7 +8,7 @@ import json
 import matplotlib
 matplotlib.use("Agg") 
 import matplotlib.pyplot as plt
-
+from sklearn.metrics import classification_report, confusion_matrix
 
 
 # Reproducibility
@@ -28,6 +28,8 @@ MODEL_DIR.mkdir(exist_ok=True)
 OUTPUT_DIR.mkdir(exist_ok=True)
 BEST_MODEL_PATH = MODEL_DIR / "best_fish_disease_model.keras"
 CLASS_NAMES_PATH = MODEL_DIR / "class_names.json"
+
+
 
 # plot function
 def plot_training_history(history, output_dir):
@@ -80,6 +82,94 @@ def merge_histories(history1, history2):
 
     return dummy
 
+def evaluate_model(model, dataset, class_names):
+
+    print("\nEvaluating model on test dataset...")
+
+    loss, accuracy = model.evaluate(dataset, verbose=1)
+
+    print(f"\nTest Loss: {loss:.4f}")
+    print(f"Test Accuracy: {accuracy:.4f}")
+
+    # Store true labels and predicted labels
+    y_true = []
+    y_pred = []
+
+    # Predict every image in the test dataset
+    for images, labels in dataset:
+
+        predictions = model.predict(images, verbose=0)
+
+        predicted_classes = np.argmax(predictions, axis=1)
+
+        y_true.extend(labels.numpy())
+
+        y_pred.extend(predicted_classes)
+
+
+    # Generate classification report
+    report = classification_report(
+        y_true,
+        y_pred,
+        target_names=class_names,
+        digits=4,
+        zero_division=0
+    )
+
+    print("\nClassification Report")
+    print(report)
+
+    # Save classification report
+    report_path = OUTPUT_DIR / "test_classification_report.txt"
+
+    with open(report_path, "w", encoding="utf-8") as file:
+        file.write(f"Test Loss: {loss:.4f}\n")
+        file.write(f"Test Accuracy: {accuracy:.4f}\n\n")
+        file.write(report)
+
+    print(f"\nClassification report saved to: {report_path}")
+
+    # Generate confusion matrix
+    cm = confusion_matrix(y_true, y_pred)
+
+    plt.figure(figsize=(10, 8))
+    plt.imshow(cm, interpolation="nearest")
+    plt.title("Test Confusion Matrix")
+    plt.colorbar()
+
+    tick_marks = np.arange(len(class_names))
+
+    plt.xticks(tick_marks, class_names, rotation=45, ha="right")
+    plt.yticks(tick_marks, class_names)
+
+    plt.xlabel("Predicted Class")
+    plt.ylabel("True Class")
+
+    for i in range(cm.shape[0]):
+        for j in range(cm.shape[1]):
+            plt.text(
+                j,
+                i,
+                str(cm[i, j]),
+                ha="center",
+                va="center"
+            )
+    
+    plt.tight_layout()
+
+    cm_path = OUTPUT_DIR / "test_confusion_matrix.png"
+
+    plt.savefig(
+        cm_path,
+        dpi=200,
+        bbox_inches="tight"
+    )
+
+    plt.close()
+
+    print(f"Confusion matrix saved to: {cm_path}")
+
+    
 
 
 
@@ -87,7 +177,8 @@ def merge_histories(history1, history2):
 # training confifuration
 IMG_SIZE = 224
 BATCH_SIZE = 16
-EPOCHS = 20
+INITIAL_EPOCHS = 40
+FINE_TUNE_EPOCHS = 30
 
 
 
@@ -104,6 +195,14 @@ train_ds = tf.keras.utils.image_dataset_from_directory(
 
 val_ds = tf.keras.utils.image_dataset_from_directory(
     DATASET_DIR / "valid",
+    image_size=(IMG_SIZE, IMG_SIZE),
+    batch_size=BATCH_SIZE,
+    shuffle=False
+)
+
+# Load test dataset
+test_ds = tf.keras.utils.image_dataset_from_directory(
+    DATASET_DIR / "test",
     image_size=(IMG_SIZE, IMG_SIZE),
     batch_size=BATCH_SIZE,
     shuffle=False
@@ -130,8 +229,9 @@ print("Class names saved successfully.")
 # Data augmentation
 data_augmentation = keras.Sequential([
     layers.RandomFlip("horizontal"),
-    layers.RandomRotation(0.1),
-    layers.RandomZoom(0.1)
+    layers.RandomRotation(0.08),
+    layers.RandomZoom(0.12),
+    layers.RandomContrast(0.15)
 ])
 
 
@@ -164,7 +264,7 @@ x = base_model(x, training=False)
 
 x = layers.GlobalAveragePooling2D()(x)
 
-x = layers.Dropout(0.3)(x)
+x = layers.Dropout(0.35)(x)
 
 outputs = layers.Dense(
     len(class_names),
@@ -214,7 +314,7 @@ print("\nStarting training...")
 history = model.fit(
     train_ds,
     validation_data=val_ds,
-    epochs=EPOCHS,
+    epochs=INITIAL_EPOCHS,
     callbacks=callbacks
 )
 
@@ -259,7 +359,7 @@ model.compile(
 history_finetune = model.fit(
     train_ds,
     validation_data=val_ds,
-    epochs=10,
+    epochs=FINE_TUNE_EPOCHS,
     callbacks=callbacks
 )
 
@@ -271,6 +371,10 @@ model.save(
 
 full_history = merge_histories(history, history_finetune)
 plot_training_history(full_history, OUTPUT_DIR)
+
 print("\nFine-tuned model saved successfully.")
 print("Training graphs saved successfully.")
+
+best_model = keras.models.load_model(BEST_MODEL_PATH)
+evaluate_model(best_model, test_ds, class_names)
 
