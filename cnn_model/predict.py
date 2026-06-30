@@ -12,11 +12,12 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 
 
+# model paths
 
 MODEL_PATH = Path(r"saved_models\fish_disease_cnn_mobilenetv2.keras")
 CLASS_NAMES_PATH = Path(r"saved_models\class_names.json")
 
-IMAGE_PATH = Path(r"cotton-wool-disease.jpg")
+IMAGE_PATH = Path(r"molly.jpg")
 
 IMG_SIZE = 224
 
